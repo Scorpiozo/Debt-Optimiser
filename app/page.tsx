@@ -1,16 +1,40 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { auth } from "../lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 import DarkCard from "../components/DarkCard";
 import WhiteCard from "../components/WhiteCard";
 
 export default function Dashboard() {
   const [strategy, setStrategy] = useState<"avalanche" | "snowball">("avalanche");
+  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        router.push("/login");
+      }
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [router]);
 
   const debts = [
     { id: 1, name: "Chase Credit Card", balance: 4200, limit: 5000, interest: 22.4, color: "bg-[#ff0000]", text: "text-[#ff0000]" },
     { id: 2, name: "Federal Student Loan", balance: 12500, limit: 15000, interest: 5.8, color: "bg-[#00e5ff]", text: "text-[#00e5ff]" },
     { id: 3, name: "Car Loan", balance: 8100, limit: 12000, interest: 4.2, color: "bg-[#00ffb7]", text: "text-[#00ffb7]" },
   ];
+
+  if (isLoading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+        <p className="text-slate-500 text-center">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="pb-12">

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import Link from "next/link";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -28,9 +29,11 @@ export default function RootLayout({
               <span className="font-extrabold text-lg text-slate-950 tracking-tight uppercase">Debt-Optimiser</span>
             </div>
             <div className="flex items-center space-x-3">
-              <div className="h-9 w-9 rounded-full bg-slate-950 flex items-center justify-center text-xs font-black text-[#00ffb7]">
-                JD
-              </div>
+              <Link href="/profile">
+                <div className="h-9 w-9 rounded-full bg-slate-950 flex items-center justify-center text-xs font-black text-[#00ffb7] hover:shadow-md hover:scale-105 transition-all cursor-pointer">
+                  JD
+                </div>
+              </Link>
             </div>
           </div>
         </nav>
