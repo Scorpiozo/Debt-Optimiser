@@ -1,32 +1,106 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { auth } from "../lib/firebase";
+import { auth, db } from "../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import { collection, query, where, onSnapshot, addDoc } from "firebase/firestore";
 import DarkCard from "../components/DarkCard";
 import WhiteCard from "../components/WhiteCard";
+
+interface Debt {
+  id: string;
+  name: string;
+  balance: number;
+  limit: number;
+  interest: number;
+  color: string;
+  text: string;
+  userId: string;
+}
+
+const debtColors = ["bg-[#ff0000]", "bg-[#00e5ff]", "bg-[#00ffb7]"];
+const debtTexts = ["text-[#ff0000]", "text-[#00e5ff]", "text-[#00ffb7]"];
 
 export default function Dashboard() {
   const [strategy, setStrategy] = useState<"avalanche" | "snowball">("avalanche");
   const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [debts, setDebts] = useState<Debt[]>([]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    balance: "",
+    limit: "",
+    interest: "",
+  });
   const router = useRouter();
 
+  // Auth check & fetch debts
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (!currentUser) {
         router.push("/login");
+        return;
       }
-      setIsLoading(false);
+
+      setUser(currentUser);
+
+      // Set up Firestore listener for user-specific debts
+      const debtsQuery = query(
+        collection(db, "debts"),
+        where("userId", "==", currentUser.uid)
+      );
+
+      const unsubscribeDebts = onSnapshot(debtsQuery, (snapshot) => {
+        const fetchedDebts: Debt[] = [];
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          const colorIndex = fetchedDebts.length % debtColors.length;
+          fetchedDebts.push({
+            id: doc.id,
+            name: data.name,
+            balance: data.balance,
+            limit: data.limit,
+            interest: data.interest,
+            color: debtColors[colorIndex],
+            text: debtTexts[colorIndex],
+            userId: data.userId,
+          });
+        });
+        setDebts(fetchedDebts);
+        setIsLoading(false);
+      });
+
+      return () => unsubscribeDebts();
     });
 
     return () => unsubscribe();
   }, [router]);
 
-  const debts = [
-    { id: 1, name: "Chase Credit Card", balance: 4200, limit: 5000, interest: 22.4, color: "bg-[#ff0000]", text: "text-[#ff0000]" },
-    { id: 2, name: "Federal Student Loan", balance: 12500, limit: 15000, interest: 5.8, color: "bg-[#00e5ff]", text: "text-[#00e5ff]" },
-    { id: 3, name: "Car Loan", balance: 8100, limit: 12000, interest: 4.2, color: "bg-[#00ffb7]", text: "text-[#00ffb7]" },
-  ];
+  const handleAddDebt = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    setIsSubmitting(true);
+    try {
+      await addDoc(collection(db, "debts"), {
+        name: formData.name,
+        balance: parseFloat(formData.balance),
+        limit: parseFloat(formData.limit),
+        interest: parseFloat(formData.interest),
+        userId: user.uid,
+        createdAt: new Date().toISOString(),
+      });
+      setFormData({ name: "", balance: "", limit: "", interest: "" });
+      setShowAddModal(false);
+    } catch (error) {
+      console.error("Error adding debt:", error);
+      alert("Failed to add debt. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -106,7 +180,9 @@ export default function Dashboard() {
             </div>
 
             {/* Neon Add Button */}
-            <button className="w-full py-3.5 bg-slate-950 hover:bg-slate-900 border-2 border-slate-950 text-white font-black text-sm rounded-xl tracking-wider uppercase shadow-[4px_4px_0px_0px_rgba(0,229,255,1)] hover:shadow-none transition-all flex items-center justify-center space-x-2">
+            <button 
+              onClick={() => setShowAddModal(true)}
+              className="w-full py-3.5 bg-slate-950 hover:bg-slate-900 border-2 border-slate-950 text-white font-black text-sm rounded-xl tracking-wider uppercase shadow-[4px_4px_0px_0px_rgba(0,229,255,1)] hover:shadow-none transition-all flex items-center justify-center space-x-2">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-4 h-4 text-[#00ffb7]">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
@@ -159,6 +235,93 @@ export default function Dashboard() {
           </div>
 
         </div>
+
+        {/* Add Debt Modal */}
+        {showAddModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <WhiteCard className="w-full max-w-md">
+              <div className="space-y-4">
+                <h2 className="text-xl font-black text-slate-950 uppercase tracking-tight">Add New Debt Account</h2>
+                
+                <form onSubmit={handleAddDebt} className="space-y-4">
+                  {/* Account Name */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-black text-slate-500 uppercase tracking-wider block">Account Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g., Credit Card, Student Loan"
+                      required
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="w-full px-3 py-2 border-2 border-slate-950 rounded-lg font-medium text-slate-950 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00e5ff] focus:ring-offset-0"
+                    />
+                  </div>
+
+                  {/* Current Balance */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-black text-slate-500 uppercase tracking-wider block">Current Balance ($)</label>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      required
+                      step="0.01"
+                      value={formData.balance}
+                      onChange={(e) => setFormData({ ...formData, balance: e.target.value })}
+                      className="w-full px-3 py-2 border-2 border-slate-950 rounded-lg font-medium text-slate-950 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00e5ff] focus:ring-offset-0"
+                    />
+                  </div>
+
+                  {/* Credit Limit / Total Loan */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-black text-slate-500 uppercase tracking-wider block">Credit Limit / Total Loan ($)</label>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      required
+                      step="0.01"
+                      value={formData.limit}
+                      onChange={(e) => setFormData({ ...formData, limit: e.target.value })}
+                      className="w-full px-3 py-2 border-2 border-slate-950 rounded-lg font-medium text-slate-950 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00e5ff] focus:ring-offset-0"
+                    />
+                  </div>
+
+                  {/* Interest Rate */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-black text-slate-500 uppercase tracking-wider block">APR Interest Rate (%)</label>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      required
+                      step="0.01"
+                      value={formData.interest}
+                      onChange={(e) => setFormData({ ...formData, interest: e.target.value })}
+                      className="w-full px-3 py-2 border-2 border-slate-950 rounded-lg font-medium text-slate-950 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00e5ff] focus:ring-offset-0"
+                    />
+                  </div>
+
+                  {/* Buttons */}
+                  <div className="flex gap-2 pt-4">
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="flex-1 py-2 bg-slate-950 hover:bg-slate-900 border-2 border-slate-950 text-white font-black text-xs rounded-lg tracking-wider uppercase shadow-[4px_4px_0px_0px_rgba(0,229,255,1)] hover:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSubmitting ? "Adding..." : "Add Account"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddModal(false)}
+                      disabled={isSubmitting}
+                      className="flex-1 py-2 bg-white hover:bg-slate-50 border-2 border-slate-950 text-slate-950 font-black text-xs rounded-lg tracking-wider uppercase transition-all disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </WhiteCard>
+          </div>
+        )}
 
       </main>
     </div>
