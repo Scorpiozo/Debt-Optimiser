@@ -79,7 +79,7 @@ export default function LoginPage() {
       // 3. If they don't exist, create their profile!
       if (!userDocSnap.exists()) {
         await setDoc(userDocRef, {
-          name: user.displayName || "New Player", 
+          name: user.displayName || "New User", 
           email: user.email,
           createdAt: new Date(),
           bestReactionTime: null,
@@ -90,7 +90,7 @@ export default function LoginPage() {
         console.log("Existing Google user logged in!");
       }
 
-      router.push("/play"); 
+      router.push("/dashboard"); 
 
     } catch (err: any) {
       console.error("Google Sign-In error:", err);
