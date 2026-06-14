@@ -13,8 +13,6 @@ interface Debt {
   balance: number;
   limit: number;
   interest: number;
-  minimumPayment: number;
-  dueDate: number;
   color: string;
   text: string;
   userId: string;
@@ -35,8 +33,6 @@ export default function Dashboard() {
     balance: "",
     limit: "",
     interest: "",
-    minimumPayment: "",
-    dueDate: "",
   });
   const [editingDebtId, setEditingDebtId] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState({
@@ -44,8 +40,6 @@ export default function Dashboard() {
     balance: "",
     limit: "",
     interest: "",
-    minimumPayment: "",
-    dueDate: "",
   });
   const [deletingDebtId, setDeletingDebtId] = useState<string | null>(null);
   const [deleteConfirmed, setDeleteConfirmed] = useState(false);
@@ -84,8 +78,6 @@ export default function Dashboard() {
             balance: data.balance,
             limit: data.limit,
             interest: data.interest,
-              minimumPayment: data.minimumPayment || 0,
-              dueDate: data.dueDate || 0,
             color: debtColors[colorIndex],
             text: debtTexts[colorIndex],
             userId: data.userId,
@@ -106,7 +98,6 @@ export default function Dashboard() {
   const totalOwed = debts.reduce((sum, item) => sum + item.balance, 0);
   const totalLimit = debts.reduce((sum, item) => sum + item.limit, 0);
   const totalCleared = Math.max(0, totalLimit - totalOwed);
-  const totalMinimum = debts.reduce((sum, item) => sum + (item.minimumPayment || 0), 0);
   
   // Compute total portfolio payoff percentage safely
   const aggregatePercentagePaid = totalLimit > 0 
@@ -118,8 +109,6 @@ export default function Dashboard() {
     strategy === "avalanche" ? b.interest - a.interest : a.balance - b.balance
   );
   const targetDebt = sortedDebts[0];
-
-  const today = new Date().getDate();
 
   // Simple placeholder logic for date calculations
   const estimatedFreedomTarget = totalOwed > 0 ? "OCT 2028" : "DEBT FREE";
@@ -138,12 +127,10 @@ export default function Dashboard() {
         balance: parseFloat(formData.balance),
         limit: parseFloat(formData.limit),
         interest: parseFloat(formData.interest),
-        minimumPayment: parseFloat(formData.minimumPayment) || 0,
-        dueDate: parseInt(formData.dueDate || "0", 10) || 0,
         userId: user.uid,
         createdAt: new Date().toISOString(),
       });
-      setFormData({ name: "", balance: "", limit: "", interest: "", minimumPayment: "", dueDate: "" });
+      setFormData({ name: "", balance: "", limit: "", interest: "" });
       setShowAddModal(false);
     } catch (error) {
       console.error("Error adding debt:", error);
@@ -165,12 +152,10 @@ export default function Dashboard() {
         balance: parseFloat(editFormData.balance),
         limit: parseFloat(editFormData.limit),
         interest: parseFloat(editFormData.interest),
-        minimumPayment: parseFloat(editFormData.minimumPayment) || 0,
-        dueDate: parseInt(editFormData.dueDate || "0", 10) || 0,
         updatedAt: new Date().toISOString(),
       });
       setEditingDebtId(null);
-      setEditFormData({ name: "", balance: "", limit: "", interest: "", minimumPayment: "", dueDate: "" });
+      setEditFormData({ name: "", balance: "", limit: "", interest: "" });
     } catch (error) {
       console.error("Error updating debt:", error);
       alert("Failed to update debt. Please try again.");
@@ -202,8 +187,6 @@ export default function Dashboard() {
       balance: debt.balance.toString(),
       limit: debt.limit.toString(),
       interest: debt.interest.toString(),
-      minimumPayment: (debt.minimumPayment || 0).toString(),
-      dueDate: (debt.dueDate || 0).toString(),
     });
   };
 
@@ -296,13 +279,6 @@ export default function Dashboard() {
               </WhiteCard>
             </div>
 
-            {/* Total Minimum Monthly Obligations */}
-            <WhiteCard>
-              <span className="text-xs font-black text-slate-500 uppercase tracking-wider">Total Minimum Monthly</span>
-              <p className="text-2xl font-black text-slate-950 mt-1">${totalMinimum.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</p>
-              <p className="text-xs text-slate-400 font-medium mt-2">Sum of all minimum monthly payments across accounts</p>
-            </WhiteCard>
-
             {/* Humanized Progress Metric */}
             <WhiteCard>
               <p className="text-xs font-black text-slate-500 uppercase tracking-wider">Portfolio Progress</p>
@@ -358,22 +334,11 @@ export default function Dashboard() {
                     const percentagePaid = debt.limit > 0 
                       ? Math.round(((debt.limit - debt.balance) / debt.limit) * 100) 
                       : 0;
-                    // days until due (approx within 30-day cycle)
-                    const due = typeof debt.dueDate === 'number' ? debt.dueDate : parseInt(String(debt.dueDate || '0'), 10);
-                    const daysUntil = ((due - today + 30) % 30);
-                    const isUrgent = daysUntil <= 5;
                     return (
                       <WhiteCard key={debt.id}>
                         <div className="flex justify-between items-start mb-4">
                           <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-black text-lg text-slate-950 uppercase tracking-tight">{debt.name}</h3>
-                              {isUrgent && (
-                                <span className="inline-block px-2 py-0.5 text-[11px] font-black bg-red-50 text-red-700 border border-red-200 rounded mt-0">
-                                  {daysUntil === 0 ? 'Due Today' : `Due in ${daysUntil}d`}
-                                </span>
-                              )}
-                            </div>
+                            <h3 className="font-black text-lg text-slate-950 uppercase tracking-tight">{debt.name}</h3>
                             <span className={`inline-block px-2 py-0.5 text-[11px] font-black bg-slate-950 rounded mt-1.5 ${debt.text}`}>
                               {debt.interest}% APR
                             </span>
@@ -381,7 +346,6 @@ export default function Dashboard() {
                           <div className="text-right">
                             <p className="font-black text-xl text-slate-950">${debt.balance.toLocaleString()}</p>
                             <p className="text-xs text-slate-500 font-bold">Limit: ${debt.limit.toLocaleString()}</p>
-                            <p className="text-xs text-slate-600 mt-1">Min: ${debt.minimumPayment.toLocaleString()} • Due: {debt.dueDate}</p>
                           </div>
                         </div>
                         
@@ -483,35 +447,6 @@ export default function Dashboard() {
                     />
                   </div>
 
-                  {/* Minimum Monthly Payment */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-black text-slate-500 uppercase tracking-wider block">Minimum Monthly Payment ($)</label>
-                    <input
-                      type="number"
-                      placeholder="0"
-                      required
-                      step="0.01"
-                      value={formData.minimumPayment}
-                      onChange={(e) => setFormData({ ...formData, minimumPayment: e.target.value })}
-                      className="w-full px-3 py-2 border-2 border-slate-950 rounded-lg font-medium text-slate-950 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00e5ff] focus:ring-offset-0"
-                    />
-                  </div>
-
-                  {/* Due Date (day of month) */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-black text-slate-500 uppercase tracking-wider block">Due Date (day of month)</label>
-                    <input
-                      type="number"
-                      placeholder="1-28"
-                      required
-                      min={1}
-                      max={28}
-                      value={formData.dueDate}
-                      onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                      className="w-full px-3 py-2 border-2 border-slate-950 rounded-lg font-medium text-slate-950 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00e5ff] focus:ring-offset-0"
-                    />
-                  </div>
-
                   {/* Buttons */}
                   <div className="flex gap-2 pt-4">
                     <button
@@ -595,35 +530,6 @@ export default function Dashboard() {
                       step="0.01"
                       value={editFormData.interest}
                       onChange={(e) => setEditFormData({ ...editFormData, interest: e.target.value })}
-                      className="w-full px-3 py-2 border-2 border-slate-950 rounded-lg font-medium text-slate-950 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00e5ff] focus:ring-offset-0"
-                    />
-                  </div>
-
-                  {/* Minimum Monthly Payment */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-black text-slate-500 uppercase tracking-wider block">Minimum Monthly Payment ($)</label>
-                    <input
-                      type="number"
-                      placeholder="0"
-                      required
-                      step="0.01"
-                      value={editFormData.minimumPayment}
-                      onChange={(e) => setEditFormData({ ...editFormData, minimumPayment: e.target.value })}
-                      className="w-full px-3 py-2 border-2 border-slate-950 rounded-lg font-medium text-slate-950 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00e5ff] focus:ring-offset-0"
-                    />
-                  </div>
-
-                  {/* Due Date (day of month) */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-black text-slate-500 uppercase tracking-wider block">Due Date (day of month)</label>
-                    <input
-                      type="number"
-                      placeholder="1-28"
-                      required
-                      min={1}
-                      max={28}
-                      value={editFormData.dueDate}
-                      onChange={(e) => setEditFormData({ ...editFormData, dueDate: e.target.value })}
                       className="w-full px-3 py-2 border-2 border-slate-950 rounded-lg font-medium text-slate-950 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00e5ff] focus:ring-offset-0"
                     />
                   </div>
