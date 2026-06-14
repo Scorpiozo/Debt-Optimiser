@@ -31,7 +31,13 @@ export default function ProfilePage() {
       }
 
       setUser(currentUser);
-      setProfile((prev) => ({ ...prev, email: currentUser.email || "" }));
+      // Pre-populate with auth data immediately so the page isn't totally blank 
+      // while waiting for Firestore
+      setProfile((prev) => ({ 
+        ...prev, 
+        email: currentUser.email || "",
+        displayName: prev.displayName || currentUser.displayName || ""
+      }));
 
       // Fetch existing profile from Firestore
       try {
@@ -41,15 +47,26 @@ export default function ProfilePage() {
           const data = docSnap.data();
           setProfile((prev) => ({
             ...prev,
-            displayName: data.displayName || "",
+            displayName: data.displayName || prev.displayName || "",
             monthlyBudget: data.monthlyBudget || 0,
           }));
+        } else {
+          // Optional: If it's a fresh signup and document hasn't populated yet,
+          // create a safe minimal profile document now.
+          await setDoc(docRef, {
+            email: currentUser.email || "",
+            displayName: currentUser.displayName || "",
+            monthlyBudget: 0,
+            createdAt: new Date().toISOString()
+          }, { merge: true });
         }
       } catch (error) {
         console.error("Error fetching profile:", error);
+      } finally {
+        // CRITICAL FIX: Ensure loading state turns off even if 
+        // the document doesn't exist yet or the fetch fails.
+        setIsLoading(false);
       }
-
-      setIsLoading(false);
     });
 
     return () => unsubscribe();
