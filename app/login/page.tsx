@@ -95,10 +95,13 @@ export default function LoginPage() {
 
   const getFriendlyErrorMessage = (errorCode: string) => {
     switch (errorCode) {
+      case "auth/invalid-credential":
+      case "auth/wrong-password":
+      case "auth/user-not-found":
+        return "Incorrect email or password. Please check your credentials and try again.";
+        
       case "auth/email-already-in-use":
         return "This email is already registered. Please sign in instead.";
-      case "auth/invalid-credential":
-        return "Incorrect email or password. Please try again.";
       case "auth/weak-password":
         return "Your password must be at least 6 characters long.";
       case "auth/invalid-email":
