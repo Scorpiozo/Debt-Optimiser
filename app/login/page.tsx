@@ -44,14 +44,15 @@ export default function LoginPage() {
         const userCred = await createUserWithEmailAndPassword(auth, email, password);
         
         await setDoc(doc(db, "users", userCred.user.uid), {
-          name: name,
+          displayName: name, // Saved as displayName to match what ProfilePage expects
           email: email,
           createdAt: new Date().toISOString()
         });
         console.log("Account created!");
       }
 
-      router.push("/dashboard"); 
+      // Route target redirected straight to profile configuration
+      router.push("/profile"); 
 
     } catch (err: any) {
       console.error("Authentication error:", err);
@@ -73,7 +74,7 @@ export default function LoginPage() {
 
       if (!userDocSnap.exists()) {
         await setDoc(userDocRef, {
-          name: user.displayName || "New User", 
+          displayName: user.displayName || "New User", 
           email: user.email,
           createdAt: new Date().toISOString()
         });
@@ -82,7 +83,8 @@ export default function LoginPage() {
         console.log("Existing Google user logged in!");
       }
 
-      router.push("/dashboard"); 
+      // Route target redirected straight to profile configuration
+      router.push("/profile"); 
 
     } catch (err: any) {
       console.error("Google Sign-In error:", err);
@@ -111,8 +113,6 @@ export default function LoginPage() {
   };
 
   return (
-    // Changed h-[calc(100vh-64px)] to a fluid flex view container to dynamically adapt 
-    // to layout components across mobile viewport shifts without causing structural breaks
     <div className="flex min-h-[calc(100vh-80px)] items-center justify-center bg-slate-50 px-4 py-8 dark:bg-slate-950">
       <Card className="w-full max-w-xl shadow-xl border-t-4 border-t-emerald-400 transition-all duration-300 dark:bg-slate-900 dark:border-slate-800 dark:border-t-emerald-400 mx-auto">
         
