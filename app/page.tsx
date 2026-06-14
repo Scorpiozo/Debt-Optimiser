@@ -46,22 +46,28 @@ export default function Dashboard() {
   const router = useRouter();
 
   // Auth check & fetch debts
+
+  // Auth check & fetch debts
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    let unsubscribeDebts: (() => void) | undefined;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       if (!currentUser) {
+        if (unsubscribeDebts) {
+          unsubscribeDebts();
+        }
         router.push("/login");
         return;
       }
 
       setUser(currentUser);
 
-      // Set up Firestore listener for user-specific debts
       const debtsQuery = query(
         collection(db, "debts"),
         where("userId", "==", currentUser.uid)
       );
 
-      const unsubscribeDebts = onSnapshot(debtsQuery, (snapshot) => {
+      unsubscribeDebts = onSnapshot(debtsQuery, (snapshot) => {
         const fetchedDebts: Debt[] = [];
         snapshot.forEach((doc) => {
           const data = doc.data();
@@ -80,11 +86,12 @@ export default function Dashboard() {
         setDebts(fetchedDebts);
         setIsLoading(false);
       });
-
-      return () => unsubscribeDebts();
     });
 
-    return () => unsubscribe();
+    return () => {
+      if (unsubscribeDebts) unsubscribeDebts();
+      unsubscribeAuth();
+    };
   }, [router]);
 
   // --- DYNAMIC AGGREGATIONS ---
