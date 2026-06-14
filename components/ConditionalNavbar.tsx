@@ -52,6 +52,11 @@ export default function ConditionalNavbar() {
         {/* Right Side: Interactive Link Menu Stack */}
         <div className="flex items-center space-x-5">
           
+          <Link href="/payoff-plans">
+            <span className="text-xs font-black uppercase text-slate-950 hover:text-emerald-500 transition-colors">
+                Payoff Plans
+            </span>
+          </Link>
           <Link href="/">
             <span className="text-xs font-black uppercase text-slate-950 hover:text-slate-800 transition-colors cursor-pointer tracking-wider">
               Dashboard
