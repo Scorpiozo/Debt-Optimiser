@@ -140,7 +140,7 @@ The application is fully compiled and running live. To access, test, or review t
     npm install
     # Inject local .env parameters and start the local runtime engine
     npm run dev
-    ```
+```
 
 ---
 
