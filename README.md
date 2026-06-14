@@ -152,6 +152,4 @@ The application is fully compiled and running live. To access, test, or review t
 ---
 Created by a well wisher
 
-```
-
 ---
