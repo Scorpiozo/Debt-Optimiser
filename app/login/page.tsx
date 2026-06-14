@@ -41,22 +41,26 @@ export default function LoginPage() {
         await signInWithEmailAndPassword(auth, email, password);
         console.log("Successfully logged in!");
       } else {
+        console.log("Attempting to register:", email);
         const userCred = await createUserWithEmailAndPassword(auth, email, password);
         
         await setDoc(doc(db, "users", userCred.user.uid), {
-          displayName: name, // Saved as displayName to match what ProfilePage expects
+          displayName: name, 
           email: email,
           createdAt: new Date().toISOString()
         });
-        console.log("Account created!");
+        console.log("Account created successfully!");
       }
 
-      // Route target redirected straight to profile configuration
+      // Safe navigation after state updates finish
       router.push("/profile"); 
 
     } catch (err: any) {
-      console.error("Authentication error:", err);
-      setError(getFriendlyErrorMessage(err.code));
+      console.error("Authentication error caught:", err);
+      
+      const errorCode = err?.code || "unknown";
+      setError(getFriendlyErrorMessage(errorCode));
+    } finally {
       setIsLoading(false);
     }
   };
