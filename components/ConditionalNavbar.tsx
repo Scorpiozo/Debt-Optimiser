@@ -53,7 +53,7 @@ export default function ConditionalNavbar() {
         <div className="flex items-center space-x-5">
           
           <Link href="/payoff-plans">
-            <span className="text-xs font-black uppercase text-slate-950 hover:text-emerald-500 transition-colors">
+            <span className="text-xs font-black uppercase text-slate-950 hover:text-slate-800 transition-colors">
                 Payoff Plans
             </span>
           </Link>

@@ -27,7 +27,14 @@ export default function Dashboard() {
   const [strategy, setStrategy] = useState<"avalanche" | "snowball">("avalanche");
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
-  const [userProfile, setUserProfile] = useState<{ monthlyBudget?: number; emergencyFund?: number }>({});
+  
+  // Added payoffStrategy to the profile state
+  const [userProfile, setUserProfile] = useState<{ 
+    monthlyBudget?: number; 
+    emergencyFund?: number;
+    payoffStrategy?: any; 
+  }>({});
+  
   const [debts, setDebts] = useState<Debt[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,7 +75,7 @@ export default function Dashboard() {
 
       setUser(currentUser);
 
-      // Fetch Profile Data
+      // Fetch Profile Data (Now including the locked strategy!)
       try {
         const profileDoc = await getDoc(doc(db, "users", currentUser.uid));
         if (profileDoc.exists()) {
@@ -76,6 +83,7 @@ export default function Dashboard() {
           setUserProfile({
             monthlyBudget: parseFloat(profileData.monthlyBudget) || 0,
             emergencyFund: parseFloat(profileData.emergencyFund) || 0,
+            payoffStrategy: profileData.payoffStrategy || null,
           });
         }
       } catch (err) {
@@ -133,21 +141,39 @@ export default function Dashboard() {
   );
   const targetDebt = sortedDebts[0];
 
-  // Dynamic accelerant engine computations
-  const userBudget = userProfile.monthlyBudget || 0;
-  const freeTargetAccelerant = Math.max(0, userBudget - totalMinimums);
+  // Logic to determine active financial routing based on locked strategy or fallback budget
+  const lockedStrategy = userProfile.payoffStrategy;
+  const activeMonthlyCommitment = lockedStrategy?.targetPayment > 0 
+    ? lockedStrategy.targetPayment 
+    : (userProfile.monthlyBudget || 0);
+    
+  const actionableExtra = Math.max(0, activeMonthlyCommitment - totalMinimums);
+  const freeTargetAccelerant = Math.max(0, (userProfile.monthlyBudget || 0) - totalMinimums);
 
-  // Dynamic real timeline estimator rule (Months = Total Debt / Available Budget Allocation)
-  const calculateEstimatedTimeline = () => {
-    if (totalOwed === 0) return "DEBT FREE";
-    if (userBudget <= 0 || userBudget <= totalMinimums) return "SET BUDGET UP";
+  // Calculates time remaining based on their locked-in date (or falls back to estimation)
+  const getTimelineDisplay = () => {
+    if (totalOwed === 0) return "DEBT FREE 🎉";
     
-    const months = Math.ceil(totalOwed / userBudget);
+    // If they locked in a strategy target date
+    if (lockedStrategy?.targetDate) {
+      const today = new Date();
+      const [targetYear, targetMonth] = lockedStrategy.targetDate.split("-").map(Number);
+      let totalMonths = (targetYear - today.getFullYear()) * 12 + (targetMonth - (today.getMonth() + 1));
+      
+      if (totalMonths <= 0) return "ACHIEVED";
+      
+      const years = Math.floor(totalMonths / 12);
+      const remainingMonths = totalMonths % 12;
+      return years > 0 ? `${years}Y ${remainingMonths}M` : `${remainingMonths} MONTHS`;
+    }
+
+    // Fallback if no strategy is locked
+    if (activeMonthlyCommitment <= 0 || activeMonthlyCommitment <= totalMinimums) return "SET PLAN";
+    const months = Math.ceil(totalOwed / activeMonthlyCommitment);
     if (months < 12) return `${months} MONTHS`;
-    
     const years = Math.floor(months / 12);
-    const remainingMonths = months % 12;
-    return remainingMonths > 0 ? `${years}Y ${remainingMonths}M` : `${years} YEARS`;
+    const remMonths = months % 12;
+    return remMonths > 0 ? `${years}Y ${remMonths}M` : `${years} YEARS`;
   };
 
   // Dynamic interest savings approach (approximate compound preservation estimation)
@@ -280,13 +306,24 @@ export default function Dashboard() {
           <div className="lg:col-span-1 space-y-6">
             
             {/* Dynamic Calculated Target Freedom Box */}
-            <DarkCard className="flex items-center justify-between">
+            <DarkCard className="flex items-center justify-between border-t-4 border-t-[#00ffb7]">
               <div className="space-y-1">
-                <p className="text-xs font-black uppercase tracking-wider text-slate-400">Freedom Target</p>
-                <p className="text-3xl font-black text-white tracking-tight">{calculateEstimatedTimeline()}</p>
+                <p className="text-xs font-black uppercase tracking-wider text-slate-400">
+                  {lockedStrategy ? "Locked Freedom Target" : "Est. Freedom Target"}
+                </p>
+                <p className="text-3xl font-black text-white tracking-tight">{getTimelineDisplay()}</p>
                 <p className="text-xs text-[#00ffb7] font-bold flex items-center pt-1 uppercase">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#00ffb7] mr-1.5 animate-pulse" />
-                  {strategy} Mode
+                  {lockedStrategy?.targetDate ? (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#00ffb7] mr-1.5" />
+                      LOCKED: {new Date(lockedStrategy.targetDate + "-01").toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 mr-1.5 animate-pulse" />
+                      UNLOCKED ESTIMATE
+                    </>
+                  )}
                 </p>
               </div>
 
@@ -330,17 +367,17 @@ export default function Dashboard() {
             <WhiteCard className="space-y-3">
               <p className="text-xs font-black text-slate-500 uppercase tracking-wider">Accelerant Engine Status</p>
               <div className="text-xs font-bold text-slate-700 space-y-1.5 font-mono">
-                <div className="flex justify-between"><span>Profile Budget:</span><span className="font-black text-slate-950">${userBudget}</span></div>
-                <div className="flex justify-between text-red-600"><span>[-] Minimums:</span><span>-${totalMinimums}</span></div>
+                <div className="flex justify-between"><span>Committed Plan:</span><span className="font-black text-slate-950">${activeMonthlyCommitment.toLocaleString()}</span></div>
+                <div className="flex justify-between text-red-600"><span>[-] Minimums:</span><span>-${totalMinimums.toLocaleString()}</span></div>
                 <div className="border-t border-slate-300 pt-1 flex justify-between text-slate-950 text-sm font-black">
                   <span>🔥 Target Boost:</span>
-                  <span className="text-[#00ffb7] bg-slate-950 px-1.5 py-0.5 rounded font-mono">${freeTargetAccelerant}</span>
+                  <span className="text-[#00ffb7] bg-slate-950 px-1.5 py-0.5 rounded font-mono">${actionableExtra.toLocaleString()}</span>
                 </div>
               </div>
               <p className="text-[10px] text-slate-400 font-medium leading-normal italic">
-                {userBudget > totalMinimums 
-                  ? `Every month, $${freeTargetAccelerant} of extra fire-power is automatically directed straight into your primary target account.`
-                  : "Go to your Profile tab and configure a monthly payment budget higher than your total minimum obligations to unleash booster cash."
+                {actionableExtra > 0 
+                  ? `Based on your locked strategy, $${actionableExtra.toLocaleString()} of extra fire-power should be directly routed into your primary target account this month.`
+                  : "Go to your Payoff Plans tab to map a target timeline and generate tactical boost capital."
                 }
               </p>
             </WhiteCard>
@@ -368,16 +405,26 @@ export default function Dashboard() {
           {/* RIGHT: Active Account Queue Stack */}
           <div className="lg:col-span-2 space-y-4">
             
-            {/* Real-time Focus Strategy Banner */}
+            {/* Real-time Focus Strategy Banner WITH EXACT MATH */}
             {targetDebt && debts.length > 0 && (
               <WhiteCard className="border-l-4 border-l-[#00e5ff] bg-slate-50">
                 <div className="flex items-start gap-3">
-                  <span className="text-2xl">🎯</span>
-                  <div>
-                    <p className="text-xs font-black text-slate-500 uppercase tracking-wider">Current Target</p>
-                    <p className="text-sm font-bold text-slate-950 mt-1">
-                      Pay your minimums everywhere else, then focus all extra payments on <span className="font-black text-[#00e5ff] underline">{targetDebt.name}</span>. Under your active <span className="font-black text-[#00ffb7] uppercase">{strategy}</span> configuration, this routes capital optimally.
-                    </p>
+                  <span className="text-2xl mt-1">🎯</span>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-black text-slate-500 uppercase tracking-wider">This Month's Action Plan</p>
+                      <span className="bg-slate-950 text-[#00ffb7] text-[10px] font-black px-2 py-0.5 rounded uppercase">{strategy} ACTIVE</span>
+                    </div>
+                    
+                    <div className="mt-3 p-3 bg-white border-2 border-slate-200 rounded-lg shadow-sm">
+                      <p className="text-sm font-bold text-slate-950 leading-relaxed">
+                        1. Pay exact minimums across all your regular accounts (<span className="text-red-500">${(totalMinimums - targetDebt.minimumPayment).toLocaleString()}</span>).
+                        <br/>
+                        2. Take your target debt's minimum (<span className="text-slate-600">${targetDebt.minimumPayment.toLocaleString()}</span>) PLUS your available strategy boost (<span className="text-[#00e5ff]">${actionableExtra.toLocaleString()}</span>).
+                        <br/>
+                        3. Make a massive single payment of <span className="font-black text-lg text-slate-950 bg-emerald-100 px-1 rounded">${(targetDebt.minimumPayment + actionableExtra).toLocaleString()}</span> directly to <span className="font-black underline decoration-2 decoration-[#00e5ff]">{targetDebt.name}</span>.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </WhiteCard>
