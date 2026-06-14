@@ -38,7 +38,7 @@ export default function LoginPage() {
         router.push("/");
       } else {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        router.push("/");
+        router.push("/profile");
       }
     } catch (err: any) {
       setError(err.message || "An error occurred");
